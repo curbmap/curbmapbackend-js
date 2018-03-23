@@ -4,13 +4,11 @@ const atob = require("atob");
 const geolib = require("geolib");
 const express = require("express");
 const router = express.Router();
-const ensureLoggedIn = require("connect-ensure-login").ensureLoggedIn;
 const mongooseModels = require("../model/mongooseModels.js");
 const postgres = require("../model/postgresModels");
 const OpenLocationCode = require("open-location-code").OpenLocationCode;
 const openLocationCode = new OpenLocationCode();
 const isNull = require("util").isNull;
-const uuidv1 = require("uuid/v1");
 const twilio = require("twilio");
 const sharp = require("sharp");
 const apn = require("apn"); // for apple notification
@@ -63,6 +61,7 @@ const MessagingResponse = require("twilio").twiml.MessagingResponse;
 let HOST_RES = "https://curbmap.com:50003/";
 let HOST_AUTH = "https://curbmap.com/";
 if (process.env.ENVIRONMENT === "TEST") {
+  winston.log("error", "in testing environment");
   HOST_RES = "https://27e0c8fb.ngrok.io/";
   HOST_AUTH = "https://6b890315.ngrok.io/";
 }
@@ -143,7 +142,7 @@ router.post(
     }
   }
 );
-router.post(
+router.get(
   "/getPhoto",
   passport.authenticate("jwt", { session: false }),
   async function(req, res, next) {
@@ -680,9 +679,7 @@ router.post(
           "-" +
           req.body.bearing +
           "-text.jpg";
-        winston.log("error", fs.existsSync(req.file.path));
         fs.renameSync(req.file.path, newFilePath);
-        winston.log("err", "renamed");
         if (
           req.file.size < 10000 ||
           req.body.olc === undefined ||
@@ -795,6 +792,7 @@ router.post(
             },
             req.user.id
           );
+          
           let photo = new mongooseModels.photos({
             userid: req.user.id,
             filename: newFilePath,

@@ -4,13 +4,11 @@ const atob = require("atob");
 const geolib = require("geolib");
 const express = require("express");
 const router = express.Router();
-const ensureLoggedIn = require("connect-ensure-login").ensureLoggedIn;
 const mongooseModels = require("../model/mongooseModels.js");
 const postgres = require("../model/postgresModels");
 const OpenLocationCode = require("open-location-code").OpenLocationCode;
 const openLocationCode = new OpenLocationCode();
 const isNull = require("util").isNull;
-const uuidv1 = require("uuid/v1");
 const twilio = require("twilio");
 const sharp = require("sharp");
 const apn = require("apn"); // for apple notification
@@ -60,12 +58,15 @@ let apnProvider = new apn.Provider(apnOptions);
 const passport = require("passport");
 const winston = require("winston");
 const MessagingResponse = require("twilio").twiml.MessagingResponse;
+
 let HOST_RES = "https://curbmap.com:50003/";
 let HOST_AUTH = "https://curbmap.com/";
 if (process.env.ENVIRONMENT === "TEST") {
-  HOST_RES = "https://27e0c8fb.ngrok.io/";
-  HOST_AUTH = "https://6b890315.ngrok.io/";
+  HOST_RES = `${process.env.RES}/`;
+  HOST_AUTH = `${process.env.AUTH}/`;
 }
+winston.log("error", `AUTH: ${HOST_AUTH} RES: ${HOST_RES}`);
+
 router.get("/uploads/:name", async function(req, res, next) {
   var options = {
     root: __dirname + "/../uploads/",
@@ -118,6 +119,7 @@ router.post(
   passport.authenticate("jwt", { session: false }),
   async function(req, res, next) {
     if (findExists(req.user.role, levels.user)) {
+      winston.log("error", req.body);
       try {
         let photo = await mongooseModels.photos.findOne({
           _id: mongooseModels.obj_id(req.body.id)
@@ -143,7 +145,7 @@ router.post(
     }
   }
 );
-router.post(
+router.get(
   "/getPhoto",
   passport.authenticate("jwt", { session: false }),
   async function(req, res, next) {
@@ -172,11 +174,15 @@ router.post(
             winston.log("error", __dirname, randomImage, avail[randomImage]);
             if (randomImage < avail.length) {
               // remove the image from the DB and from the aggregation with slice
-              let removed = await mongooseModels.photos.remove({
-                _id: avail[randomImage]._id
-              });
+              //let removed = await mongooseModels.photos.remove({
+              //  _id: avail[randomImage]._id
+              //});
               avail.splice(randomImage, 1);
-              winston.log("info", "removed", removed);
+            }
+            if (avail.length === 0) {
+              return res
+                .status(200)
+                .json({ success: false, error: "no more photos" });
             }
             // pick a new number, hopefully from the values we actually have in the list
             randomImage = Math.round(Math.random() * avail.length);
@@ -311,7 +317,7 @@ router.post(
               success: false
             });
           }
-        } else if (findExists(req.user.role, levels.test)){
+        } else if (findExists(req.user.role, levels.test)) {
           let parent_id = mongooseModels.obj_id(req.body.parentid);
 
           let parent = await mongooseModels.parents
@@ -390,7 +396,11 @@ router.post(
             }
           }
         } else {
-          return res.status(200).json({success: 200, comment: "If you were a user or on the app you could add lines! Come join us."})
+          return res.status(200).json({
+            success: 200,
+            comment:
+              "If you were a user or on the app you could add lines! Come join us."
+          });
         }
       } catch (error) {
         winston.log("warn", error);
@@ -585,13 +595,11 @@ router.post(
       // have to have a line within the parent or on its own to add to. Otherwise, we
       // don't know what line to add to
       if (req.user.role === "ROLE_SANDBOX") {
-        return res
-          .status(200)
-          .json({
-            success: true,
-            comment:
-              "We love that you're interested in helping out, but we need you to be in the app or logged in as a user."
-          });
+        return res.status(200).json({
+          success: true,
+          comment:
+            "We love that you're interested in helping out, but we need you to be in the app or logged in as a user."
+        });
       } else {
         res.status(400).json({
           success: false
@@ -616,54 +624,84 @@ router.post("/respondFromText", async function(req, res, next) {
       let respText = await mongooseModels.photosText.findOne({
         _id: mongooseModels.obj_id(body[0])
       });
-      let untilDate = new Date(
-        body[3] + " " + body[2] + " " + respText.timezone
-      );
-      respText.responses.push({
-        from: req.body.From,
-        date: new Date(),
-        canPark: body[1] === "Y",
-        until: body[1] === "Y" ? untilDate : null,
-        permit: body.length === 5 ? body[4] : body.length === 3 ? body[2] : null // if exists otherwise null
-      });
-      let notification = new apn.Notification();
-      notification.expiry = Math.floor(Date.now() / 1000) + 24 * 3600;
-      notification.badge = 2;
-      if (body[1] === "Y") {
-        notification.alert =
-          "You can park at the spot you just uploaded a photo for, until: " +
-          untilDate +
-          " unless you have permit:" +
-          body[4];
-      } else {
-        if (body.length === 3) {
-          notification.alert =
-            "You can only park there if you have permit: " + body[2];
+      if (respText.responses.length < 1) {
+        let untilDate = new Date(
+          body[3] + " " + body[2] + " " + respText.timezone
+        );
+        respText.responses.push({
+          from: req.body.From,
+          date: new Date(),
+          canPark: body[1] === "Y",
+          until: body[1] === "Y" ? untilDate : null,
+          permit:
+            body.length === 5 ? body[4] : body.length === 3 ? body[2] : null // if exists otherwise null
+        });
+        if (respText.device_type === true) {
+          let notification = new apn.Notification();
+          notification.expiry = Math.floor(Date.now() / 1000) + 24 * 3600;
+          notification.badge = 2;
+          if (body[1] === "Y") {
+            notification.alert =
+              "You can park at the spot you just uploaded a photo for, until: " +
+              untilDate +
+              " unless you have permit:" +
+              body[4];
+          } else {
+            if (body.length === 3) {
+              notification.alert =
+                "You can only park there if you have permit: " + body[2];
+            } else {
+              notification.alert =
+                "It's best if you do not park at the location you just photographed.";
+            }
+          }
+          notification.topic = "com.curbmap.curbmap";
+          notification.sound = "ping.aiff";
+          notification.payload = { messageFrom: "curbmap" };
+          let result = await apnProvider.send(notification, respText.token);
         } else {
-          notification.alert =
-            "It's best if you do not park at the location you just photographed.";
+          // send message to android
         }
+        respText.save();
+        var twilmsg = new MessagingResponse();
+        twilmsg.message("success! Thanks for making curbmap better!");
+        const tempJSON = {
+          from: req.body.From,
+          body: req.body.Body,
+          time: new Date()
+        };
+        fs.appendFileSync("textmessages.json", JSON.stringify(tempJSON));
+        res.writeHead(200, {
+          "Content-Type": "text/xml"
+        });
+        res.end(twilmsg.toString());
+      } else {
+        // respond that there's already been a response stored
+        var twilmsg = new MessagingResponse();
+        twilmsg.message("Error response already received!");
+        res.writeHead(200, {
+          "Content-Type": "text/xml"
+        });
+        res.end(twilmsg.toString());
+        return;
       }
-      notification.topic = "com.curbmap.curbmap";
-      notification.sound = "ping.aiff";
-      notification.payload = { messageFrom: "curbmap" };
-      let result = await apnProvider.send(notification, respText.token);
-      respText.save();
-    } catch (err) {}
+    } catch (err) {
+      var twilmsg = new MessagingResponse();
+      twilmsg.message("Something went wrong trying to save the response!");
+      res.writeHead(200, {
+        "Content-Type": "text/xml"
+      });
+      res.end(twilmsg.toString());
+      return;
+    }
+  } else {
+    var twilmsg = new MessagingResponse();
+    twilmsg.message("Error in content for your response!");
+    res.writeHead(200, {
+      "Content-Type": "text/xml"
+    });
+    res.end(twilmsg.toString());
   }
-  var twilmsg = new MessagingResponse();
-  twilmsg.message("success! Thanks for making curbmap better!");
-  twilclient;
-  const tempJSON = {
-    from: req.body.From,
-    body: req.body.Body,
-    time: new Date()
-  };
-  fs.appendFileSync("textmessages.json", JSON.stringify(tempJSON));
-  res.writeHead(200, {
-    "Content-Type": "text/xml"
-  });
-  res.end(twilmsg.toString());
 });
 
 router.post(
@@ -671,33 +709,24 @@ router.post(
   passport.authenticate("jwt", { session: false }),
   upload.single("image"),
   async function(req, res, next) {
+    winston.log("error", "got into uploadText fun");
     if (findExists(req.user.role, levels.test)) {
       try {
-        let newFilePath =
-          req.file.path +
-          "-" +
-          req.body.olc +
-          "-" +
-          req.body.bearing +
-          "-text.jpg";
-        winston.log("error", fs.existsSync(req.file.path));
+        let newFilePath = req.file.path + "-text.jpg";
         fs.renameSync(req.file.path, newFilePath);
-        winston.log("err", "renamed");
         if (
           req.file.size < 10000 ||
-          req.body.olc === undefined ||
-          req.body.olc === "" ||
-          req.body.bearing === undefined ||
-          req.body.bearing === "" ||
           req.body.date === "" ||
           req.body.date === undefined ||
           req.body.token === "" ||
-          req.body.token === undefined
+          req.body.token === undefined ||
+          req.body.device_type === undefined ||
+          req.body.device_type === ""
         ) {
           fs.unlinkSync(newFilePath);
           res.status(400).json({
             success: false,
-            error: "file or olc error"
+            error: "Incorrect file size or data error"
           });
         } else {
           let photo = new mongooseModels.photosText({
@@ -705,6 +734,7 @@ router.post(
             userid: req.user.id,
             filename: newFilePath,
             token: req.body.token,
+            device_type: req.body.device_type === "ios",
             timezone: req.body.timezone,
             date: Date(),
             size: req.file.size,
@@ -738,13 +768,15 @@ router.post(
           fs.unlinkSync(newFilePath);
         }
         res.status(500).json({
-          success: false
+          success: false,
+          error: e
         });
       }
     } else {
       fs.unlinkSync(req.file.path);
       res.status(401).json({
-        success: false
+        success: false,
+        error: "User not authorized"
       });
     }
   }
@@ -795,6 +827,7 @@ router.post(
             },
             req.user.id
           );
+
           let photo = new mongooseModels.photos({
             userid: req.user.id,
             filename: newFilePath,
@@ -1232,8 +1265,6 @@ let processResults = function(results, getLines) {
               ds: restr["ds"],
               wk: restr["wk"],
               mn: restr["mn"],
-              lt: restr["lt"],
-              pm: restr["pm"],
               ct: restr["ct"],
               pr: restr["pr"],
               ve: restr["ve"],

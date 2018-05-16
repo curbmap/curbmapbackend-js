@@ -147,7 +147,7 @@ function addToPhotos(newValue, userid, res) {
         foundPhotos.photos_created.push(newValue);
         return Photo.update(
           {
-            photos_created: foundPhotos.lines_created
+            photos_created: foundPhotos.photos_created
           },
           {
             where: {

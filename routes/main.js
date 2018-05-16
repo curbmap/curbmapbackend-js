@@ -800,7 +800,9 @@ router.post(
         } else if (
           req.file.size < 10000 ||
           req.body.olc === undefined ||
-          req.body.olc === ""
+          req.body.olc === "" ||
+          req.body.deviceType === undefined ||
+          req.body.deviceType === ""
         ) {
           fs.unlinkSync(req.file.path);
           res.status(400).json({
@@ -808,7 +810,7 @@ router.post(
             error: "file or olc error"
           });
         } else {
-          if (req.body.bearing === undefined || req.body.bearing === "") {
+          if (req.body.bearing === undefined || req.body.bearing === "" || req.body.bearing === null) {
             req.body.bearing = 0.0;
           }
           let newFilePath =
@@ -833,7 +835,10 @@ router.post(
             filename: newFilePath,
             date: Date(),
             size: req.file.size,
-            classifications: []
+            classifications: [],
+            deviceType: req.body.deviceType,
+            bearing: req.body.bearing,
+            olc: req.body.olc
           });
           await photo.save();
           res.status(200).json({

@@ -65,7 +65,6 @@ if (process.env.ENVIRONMENT === "TEST") {
   HOST_RES = `${process.env.RES}/`;
   HOST_AUTH = `${process.env.AUTH}/`;
 }
-winston.log("error", `AUTH: ${HOST_AUTH} RES: ${HOST_RES}`);
 
 router.get("/uploads/:name", async function(req, res, next) {
   var options = {
@@ -159,7 +158,6 @@ router.get(
         if (avail.length === 0) {
           res.status(200).json({ success: false, error: "no more photos" });
         } else {
-          winston.log("error", "avail", avail.length);
           let randomImage = Math.round(Math.random() * avail.length);
           let i = 0;
           while (
@@ -171,7 +169,6 @@ router.get(
                 .status(200)
                 .json({ success: false, error: "no more photos" });
             }
-            winston.log("error", __dirname, randomImage, avail[randomImage]);
             if (randomImage < avail.length) {
               // remove the image from the DB and from the aggregation with slice
               //let removed = await mongooseModels.photos.remove({
@@ -186,7 +183,6 @@ router.get(
             }
             // pick a new number, hopefully from the values we actually have in the list
             randomImage = Math.round(Math.random() * avail.length);
-            winston.log("info", "random image", randomImage);
             i += 1;
           }
           sharp(__dirname + "/../" + avail[randomImage].filename)
@@ -294,7 +290,6 @@ router.post(
               new_line.restrs_length++;
             }
           }
-          winston.log("info", new_line);
           if (new_line.restrs.length > 0) {
             await new_line.save();
             res.status(200).json({
@@ -612,7 +607,6 @@ router.post(
 // should probably require this from twilio.com
 router.post("/respondFromText", async function(req, res, next) {
   var ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-  winston.log("info", "respond from text:", ip);
   let body = req.body.Body.split(" ");
   if (
     [2, 3, 4, 5].includes(body.length) &&
@@ -709,7 +703,6 @@ router.post(
   passport.authenticate("jwt", { session: false }),
   upload.single("image"),
   async function(req, res, next) {
-    winston.log("error", "got into uploadText fun");
     if (findExists(req.user.role, levels.test)) {
       try {
         let newFilePath = req.file.path + "-text.jpg";
@@ -787,6 +780,12 @@ router.post(
   passport.authenticate("jwt", { session: false }),
   upload.single("image"),
   async function(req, res, next) {
+    winston.log("warn", "/imageUpload: ", {
+      file: req.file,
+      date: new Date(),
+      user: req.user.username,
+      body: req.body
+    });
     if (!req.file) {
       return res
         .status(400)
@@ -810,7 +809,11 @@ router.post(
             error: "file or olc error"
           });
         } else {
-          if (req.body.bearing === undefined || req.body.bearing === "" || req.body.bearing === null) {
+          if (
+            req.body.bearing === undefined ||
+            req.body.bearing === "" ||
+            req.body.bearing === null
+          ) {
             req.body.bearing = 0.0;
           }
           let newFilePath =
@@ -872,7 +875,6 @@ router.get(
   "/areaOLC",
   passport.authenticate("jwt", { session: false }),
   async function(req, res, next) {
-    winston.log("info", req.query);
     const time_start = new Date().getTime();
     if (
       findExists(req.user.role, levels.sandbox) &&
@@ -1007,9 +1009,7 @@ router.get(
             latitude: upper[1]
           }
         ); // keep the distance to one dimension
-        winston.log("info", "DISTANCE:", {
-          distance: distance
-        });
+
         // diagonal distance in the view
         if (user !== undefined && user === req.user.username) {
           var query = mongooseModels.parents.find({
@@ -1070,7 +1070,6 @@ router.get(
                 results_from_mongo: result.length,
                 time: time_end_results - time_start
               });
-              // winston.log('info', util.inspect(result, {depth: null}));
               let results_to_send;
               if (distance < 1200) {
                 results_to_send = processResults(result, true);

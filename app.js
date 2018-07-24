@@ -1,5 +1,5 @@
 "use strict";
-require("dotenv").config({ path: "../curbmap.env" });
+require("dotenv").config({ path: "../config/curbmap.env" });
 const express = require("express");
 const path = require("path");
 const logger = require("morgan");
@@ -15,7 +15,7 @@ const bcrypt = require("bcrypt");
 const passportJWT = require("passport-jwt");
 const JWTStrategy = passportJWT.Strategy;
 const ExtractJWT = passportJWT.ExtractJwt;
-const TOKEN_KEY = fs.readFileSync("../curbmap.pub");
+const TOKEN_KEY = fs.readFileSync("../config/curbmap.pub");
 var app = express();
 
 // view engine setup

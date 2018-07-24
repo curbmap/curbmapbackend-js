@@ -5,7 +5,7 @@ const geolib = require("geolib");
 const express = require("express");
 const router = express.Router();
 const mongooseModels = require("../model/mongooseModels.js");
-const postgres = require("../model/postgresModels");
+const db = require("../models");
 const OpenLocationCode = require("open-location-code").OpenLocationCode;
 const openLocationCode = new OpenLocationCode();
 const isNull = require("util").isNull;
@@ -48,7 +48,7 @@ const upload = multer({
 
 let apnOptions = {
   token: {
-    key: "../apn_cert.p8",
+    key: "../config/apn_cert.p8",
     keyId: "N36MRYQ382",
     teamId: "CNKFCAS44G"
   }
@@ -287,7 +287,17 @@ router.post(
                 ud: new Date()
               };
               new_line.restrs.push(restr_checked);
-              new_line.restrs_length++;
+              const line_id= new_line._id.toString()
+              const restr_id= new_line.restrs[new_line.restrs.length - 1]
+              let user_restrictions = db.curbmap_user_restriction.findOne({where: {userid: req.user.id}})
+              if (user_restrictions == null) {
+                user_restrictions = db.curbmap_user_restriction.build({
+                    userid: req.user.id,
+                    restrictions: []
+                  });    
+              }
+              
+              await user_restr.save();
             }
           }
           if (new_line.restrs.length > 0) {
@@ -296,17 +306,6 @@ router.post(
               success: true,
               line_id: new_line._id.toString()
             });
-            for (restr of new_line.restrs) {
-              postgres.addToLines(
-                {
-                  line_coords: new_line.loc.coordinates,
-                  line_id: new_line._id,
-                  restr_id: restr._id,
-                  date: Date()
-                },
-                req.user.id
-              );
-            }
           } else {
             res.status(200).json({
               success: false
@@ -355,6 +354,25 @@ router.post(
                 };
                 parent.lines[new_length - 1].restrs.push(restr_checked);
                 parent.lines[new_length - 1].restrs_length += 1;
+                let length = parent.lines[new_length - 1].restrs.length;
+                let restr_id =
+                  parent.lines[new_length - 1].restrs[length - 1]._id;
+                let line_id = parent.lines[new_length - 1]._id;
+                let user_restrictions = db.curbmap_user_restriction.findOne({
+                  where: { userid: req.user.id }
+                });
+                if (user_restrictions == null) {
+                  user_restrictions = db.curbmap_user_restriction.build({
+                    userid: req.user.id,
+                    restrictions: []
+                  });
+                }
+                user_restrictions.restrictions.push({
+                  line_id,
+                  restr_id,
+                  date: new Date()
+                });
+                await user_restrictions.save();
                 parent.total_types += 1;
                 new_parent_types = parent.types_each;
                 new_parent_types[restr["type"]] += 1;
@@ -370,18 +388,6 @@ router.post(
                 success: true,
                 line_id: parent.lines[new_length - 1]._id.toString()
               });
-              for (restr of parent.lines[new_length - 1]) {
-                postgres.addToLines(
-                  {
-                    parent_id: parent._id,
-                    line_coords: parent.lines[new_length - 1].loc.coordinates,
-                    line_id: parent.lines[new_length - 1]._id,
-                    restr_id: restr._id,
-                    date: Date()
-                  },
-                  req.user.id
-                );
-              }
             } else {
               // we didn't add any new restrictions to the new line, so don't save it to the
               // parent line
@@ -490,15 +496,20 @@ router.post(
                   by: req.user.id
                 };
                 line.restrs.push(temp_r);
-                postgres.addToLines(
-                  {
-                    line_coords: line.loc.coordinates,
-                    line_id: line._id,
-                    restr_id: line.restrs[line.restrs.length - 1]._id,
-                    date: Date()
-                  },
-                  req.user.id
-                );
+                let restr_id = line.restrs[line.restrs.length - 1]._id
+                let user_restrictions = db.curbmap_user_restriction.findOne({where: {userid: req.user.id}})
+                if (user_restrictions == null) {
+                    db.curbmap_user_restriction.build({
+                        userid: req.user.id,
+                        restrictions: []
+                      });      
+                }
+                db.curbmap_user_restriction.restrictions.push({
+                    line_id,
+                    restr_id,
+                    date: new Date()
+                })
+                await user_restrictions.save();
               }
             }
             await line.save();
@@ -552,20 +563,25 @@ router.post(
                     by: req.user.id
                   };
                   the_line_parent.lines[location].restrs.push(temp_r);
-                  postgres.addToLines(
-                    {
-                      line_coords:
-                        the_line_parent.lines[location].loc.coordinates,
-                      parent_id: the_line_parent._id,
-                      line_id: the_line_parent.lines[location]._id,
-                      restr_id:
-                        the_line_parent.lines[location].restrs[
-                          the_line_parent.lines[location].restrs.length - 1
-                        ]._id,
-                      date: Date()
-                    },
-                    req.user.id
-                  );
+                  let length = the_line_parent.lines[location].restrs.length;
+                  let restr_id =
+                    the_line_parent.lines[location].restrs[length - 1]._id;
+                  let line_id = the_line_parent.lines[location]._id;
+                  let user_restrictions = db.curbmap_user_restriction.findOne({
+                    where: { userid: req.user.id }
+                  });
+                  if (user_restrictions == null) {
+                    user_restrictions = db.curbmap_user_restriction.build({
+                      userid: req.user.id,
+                      restrictions: []
+                    });
+                  }
+                  user_restrictions.restrictions.push({
+                    restr_id,
+                    line_id,
+                    date: new Date()
+                  });
+                  await user_restrictions.save();
                   the_line_parent.lines[location].markModified("restrs");
                   the_line_parent.lines[location].restrs_length += 1;
                   the_line_parent.lines[location].markModified("restrs_length");
@@ -824,15 +840,17 @@ router.post(
             req.body.bearing +
             ".jpg";
           fs.renameSync(req.file.path, newFilePath);
-          postgres.addToPhotos(
-            {
-              olc: req.body.olc,
-              filename: newFilePath,
-              date: Date()
-            },
-            req.user.id
-          );
-
+          let user_photos = db.curbmap_user_photo.findOne({
+            where: { userid: req.user.id }
+          });
+          if (user_photos === null) {
+            user_photo = db.curbmap_user_photo.build({
+              photos: [],
+              userid: req.user.id
+            });
+          }
+          user_photos.photos.push({ filename: newFilePath, olc: req.body.olc });
+          await user_photos.save();
           let photo = new mongooseModels.photos({
             userid: req.user.id,
             filename: newFilePath,

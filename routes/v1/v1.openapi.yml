@@ -140,8 +140,7 @@ paths:
               schema: 
                 $ref: "#/components/schemas/ParticipateImageResponse"
 servers:
-  - url: 'http://curbmap.com:50003/v1/'
-  - url: 'https://localhost:50003/v1/'
+  - url: 'https://curbmap.com:50003/v1/'
 security:
   - BearerAuth: []
 components:

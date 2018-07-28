@@ -96,6 +96,7 @@ const PhotosTextSchema = new mongoose.Schema(
     localid: {
       type: String
     },
+    device_type: Boolean, // false === Android, true === iOS
     token: String,
     filename: String,
     date: Date,

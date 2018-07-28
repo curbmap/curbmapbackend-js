@@ -4,7 +4,7 @@ module.exports = (sequelize, DataTypes) => {
     "curbmap_user_photo",
     {
       photos: {
-        type: DataTypes.ARRAY({ type: DataTypes.JSONB }),
+        type: DataTypes.ARRAY({ type: DataTypes.STRING }),
         defaultValue: []
       },
       userid: {

@@ -19,7 +19,7 @@ module.exports = {
         onDelete: "cascade"
       },
       photos: {
-        type: Sequelize.ARRAY({ type: Sequelize.JSONB }),
+        type: Sequelize.ARRAY({ type: Sequelize.STRING }),
         defaultValue: [],
         allowNull: false
       },

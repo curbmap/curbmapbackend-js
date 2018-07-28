@@ -90,7 +90,7 @@ paths:
   /respond: {}
   /vote/up:
       post:
-        requesBody:
+        requestBody:
           content:
             application/json:
               schema:
@@ -108,7 +108,7 @@ paths:
             description: Not authorized
   /vote/down: 
     post:
-      requesBody:
+      requestBody:
         content:
           application/json:
             schema:

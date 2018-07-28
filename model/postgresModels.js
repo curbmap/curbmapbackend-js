@@ -1,9 +1,9 @@
 const Sequelize = require("sequelize");
-require("dotenv").config({ path: "../curbmap.env" });
+require("dotenv").config({ path: "../config/curbmap.env" });
 const uri = `postgres://${process.env.USERDB_USERNAME}:${
   process.env.USERDB_PASSWORD
 }@${process.env.POSTGRES_HOST}/${process.env.POSTGRES_DB}`;
-const sequelize = new Sequelize(uri);
+const sequelize = new Sequelize(uri, {logging: false});
 const User = sequelize.define(
   "standard_user",
   {

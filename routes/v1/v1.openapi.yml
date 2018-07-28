@@ -1,0 +1,219 @@
+openapi: 3.0.0
+info:
+  description: Curbmap API documentation
+  version: 1.0.0
+  title: Curbmap API Documentation
+  termsOfService: 'https://curbmap.com/terms/'
+  contact:
+    email: curbmap@curbmap.com
+  license:
+    name: Apache 2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+paths:
+  /add/line: {}
+  /add/restriction: {}
+  /annotate:
+    post:
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          description: Not authorized
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnotateRequestBody'
+        description: Annotate a photo with a series of boxes with labels
+        required: true
+  /annotate/verify:
+    post:
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          description: Not authorized
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnotateVerifyRequestBody'
+        description: Verify an annotation as correct
+        required: true
+  /area/olc: {}
+  /area/polygon: {}
+  /image/upload:
+    post:
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Incorrect parameters, or image was not uploaded
+        '401':
+          description: Not authorized
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  description: image to upload
+                  type: string
+                  format: binary
+                deviceType:
+                  description: 'Type of device, including model info'
+                  type: string
+                bearing:
+                  description: Degrees from North
+                  type: number
+                olc:
+                  description: 'open location code for image data, 10 character length'
+                  type: string
+              required:
+                - image
+                - deviceType
+                - bearing
+                - olc
+  /respond: {}
+  /vote/up:
+      post:
+        requestBody:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteRequestBody"
+        responses:
+          '200':
+            description: successful operation
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ApiResponse'
+          '400':
+            description: Incorrect parameters
+          '401':
+            description: Not authorized
+  /vote/down: 
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoteRequestBody"
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Incorrect parameters
+        '401':
+          description: Not authorized
+  /participate/image:
+    get:
+      responses:
+        '401':
+          description: Not authorized
+        '500':
+          description: System error or no image
+        '404': 
+          description: No images found
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema: 
+                $ref: "#/components/schemas/ParticipateImageResponse"
+servers:
+  - url: 'http://localhost:8081/v1/'
+  - url: 'https://localhost:8081/v1/'
+security:
+  - BearerAuth: []
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    AnnotateVerifyRequestBody:
+      type: object
+      required:
+        - photoId
+        - classificationId
+      properties:
+        photoId:
+          type: string
+        classificationId:
+          type: string
+    AnnotateRequestBody:
+      type: object
+      required:
+        - photoId
+        - boxes
+      properties:
+        photoId:
+          type: string
+        boxes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Box'
+    VoteRequestBody:
+      type: object
+      required: 
+        - id
+      properties:
+        id:
+          type: string
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    ParticipateImageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        image:
+          type: string
+          description: Base64 encoded string
+        id:
+          type: string
+          description: ObjectId string for image
+    Box:
+      type: object
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        width:
+          type: number
+        height:
+          type: number
+        categories:
+          type: array
+          items: string
+          example:
+            - mouse_body
+      required:
+        - x
+        - y
+        - width
+        - height
+        - categories

@@ -13,7 +13,6 @@ router.get(
     "/image",
     passport.authenticate("jwt", { session: false }),
     async function(req, res, next) {
-    console.log("NEXT");
     if (findExists(req.user.role, LEVELS.user)) {
       try {
         let avail = await mongooseModels.photos.aggregate([

@@ -171,6 +171,28 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Box'
+    Box:
+      type: object
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        width:
+          type: number
+        height:
+          type: number
+        categories:
+          type: array
+          items: string
+          example:
+            - mouse_body
+      required:
+        - x
+        - y
+        - width
+        - height
+        - categories
     VoteRequestBody:
       type: object
       required: 
@@ -194,25 +216,3 @@ components:
         id:
           type: string
           description: ObjectId string for image
-    Box:
-      type: object
-      properties:
-        x:
-          type: number
-        y:
-          type: number
-        width:
-          type: number
-        height:
-          type: number
-        categories:
-          type: array
-          items: string
-          example:
-            - mouse_body
-      required:
-        - x
-        - y
-        - width
-        - height
-        - categories
